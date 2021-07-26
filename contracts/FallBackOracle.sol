@@ -2,33 +2,25 @@
 pragma solidity >=0.7.0;
 
 import "hardhat/console.sol";
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
-import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
+import "usingtellor/contracts/UsingTellor.sol"; 
 
 /*
 Notes: might have to use a greater fee within creating a pool to make it work
 */
 
-contract FallBackOracle {
+contract FallBackOracle is UsingTellor {
 
-  // Setting UniswapV3 Factories and Pools
-  IUniswapV3Factory factory;
-  IUniswapV3Pool pool;
+    function grabTellorValue(uint256 _dataId) internal view returns (uint256, uint256) {
+      (bool ifRetrieve, uint256 value, uint256 _timestampRetrieved) = getCurrentValue(_dataId);
+      if (!ifRetrieve) return (0, 0);
+      return (value, _timestampRetrieved);
+    }
 
-  // Addresses for different coins - ifejaoifjeoaifjoaeijijo
-  address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
-  address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    function grabNewValue(uint256 _dataId) external view returns (uint256) {
+      // Retrieve Tellor Value
+      (uint256 tellorValue, uint256 tellorTimestamp) = grabTellorValue(_dataId);
+      return tellorValue;
+    }
 
-  // Creating the actual oracle
-  constructor(address _factory) {
-    factory = IUniswapV3Factory(_factory);
-    address poolAddress = factory.createPool(WETH9, USDC, 3000);
-    pool = IUniswapV3Pool(poolAddress);
-    console.log("Deploying an Oracle with pool address:", poolAddress);
-  }
-
-  function seeTokenZero() public view returns (address) {
-      return pool.token0();
-  }
-
+    constructor(address payable _tellorAddress) UsingTellor(_tellorAddress) public {}
 }
