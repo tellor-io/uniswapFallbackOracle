@@ -1,5 +1,5 @@
 //SPDX-License-Identifier: Unlicense
-pragma solidity ^0.7.0;
+pragma solidity >=0.7.0;
 
 import "hardhat/console.sol";
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
@@ -15,10 +15,9 @@ contract FallBackOracle {
   IUniswapV3Factory factory;
   IUniswapV3Pool pool;
 
-  // Addresses for different coins
+  // Addresses for different coins - ifejaoifjeoaifjoaeijijo
   address public constant WETH9 = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
   address public constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
 
   // Creating the actual oracle
   constructor(address _factory) {
@@ -31,18 +30,5 @@ contract FallBackOracle {
   function seeTokenZero() public view returns (address) {
       return pool.token0();
   }
-
-  /*function getValue() public view returns (uint160) {
-      (
-            uint160 sqrtPriceX96,
-            int24 tick,
-            uint16 observationIndex,
-            uint16 observationCardinality,
-            uint16 observationCardinalityNext,
-            uint8 feeProtocol,
-            bool unlocked
-        ) = pool.slot0();
-        return sqrtPriceX96;
-  }*/
 
 }
