@@ -32,6 +32,7 @@ describe("Fallback Oracle", function() {
     const secondVal = (await usingTellor.grabNewValue(2));
     console.log(firstVal);
     console.log(secondVal);
-    await usingTellor.grabUniswapValue([2, 4]);
+    const ticks = await usingTellor.grabUniswapValue([0, 20]);
+    console.log(ticks);
   });
 });
