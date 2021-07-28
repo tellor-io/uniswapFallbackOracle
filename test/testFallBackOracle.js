@@ -11,7 +11,7 @@ const IDs = [1]
 const contractAddresses = [sampleUniswapAddress]
 
 // Offset
-const offset = 8
+const offset = 10
 
 describe("Fallback Oracle", function() {
 
@@ -30,8 +30,6 @@ describe("Fallback Oracle", function() {
   // Use Tellor Playground to update values and check both the mapping and 
   // return function
   it("Check for Tellor Update Values", async function() {
-    const firstVal = (await fallBackOracle.grabNewValue([20, 0], 1, 1000000));
-    //const secondVal = (await fallBackOracle.grabNewValue([20, 0], 2, 1000000));
-    //await fallBackOracle.grabUniswapValue(1, [20, 0], 1000000);
+    var values, timestamp = await fallBackOracle.grabNewValue([20, 0], 1, 1000000);
   });
 });

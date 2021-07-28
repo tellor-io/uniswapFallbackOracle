@@ -18,6 +18,20 @@ contract FallBackOracle is UsingTellor {
     using SafeMath for uint256;
 
     mapping(uint => address) public priceFeeds; // Mapping for Data IDs and addresses
+    
+    // Determines if a function is within a specific percentage range of the request 
+    function withinThreshold(uint256 _uniswapValue, uint256 _tellorValue, uint256 _percent) internal pure returns (bool) {
+      // Calculate difference between the two
+      uint256 valueDifference = 0;
+      if (_uniswapValue > _tellorValue) {
+        valueDifference = _uniswapValue.sub(_tellorValue);
+      } else {
+        valueDifference = _tellorValue.sub(_uniswapValue);
+      }
+
+      // Determine if within or outside of threshold
+      return (valueDifference.mul(100) < _percent.mul(_uniswapValue));
+    }
 
     // Grabs current Tellor value, as well as the timestamp retrieved
     function grabTellorValue(uint256 _dataId) internal view returns (uint256, uint256) {
@@ -43,7 +57,7 @@ contract FallBackOracle is UsingTellor {
     }
 
     // General function grab new values from the oracle
-    function grabNewValue(uint32[] memory _timeSpan, uint256 _dataId, uint128 _liquidityBound) external returns (uint256) {
+    function grabNewValue(uint32[] memory _timeSpan, uint256 _dataId, uint128 _liquidityBound) external view returns (uint256, uint256) {
       // Set up Uniswap Pool
       IUniswapV3Pool uniswapPool = IUniswapV3Pool(address(priceFeeds[_dataId]));
       uint256 uniswapPrice = grabUniswapValue(uniswapPool, _timeSpan, _liquidityBound);
@@ -55,7 +69,7 @@ contract FallBackOracle is UsingTellor {
 
       // Retrieve Tellor Value
       (uint256 tellorValue, uint256 tellorTimestamp) = grabTellorValue(_dataId);
-      return tellorValue;
+      return (tellorValue, tellorTimestamp);
     }
 
     // Getter to receive respective contract address from mapping
