@@ -128,17 +128,17 @@ contract FallBackOracle is UsingTellor {
     function grabNewValue(uint256 _dataId, uint128 _liquidityBound, uint256 _timeDifference, uint256 _percentDifference) external view returns (uint256, uint256) {
       // Set up Uniswap Pool and retrieve respective values
       IUniswapV3Pool uniswapPool = IUniswapV3Pool(address(priceFeeds[_dataId]));
-      (uint256 oraclePrice, uint256 oracleTimestamp) = grabUniswapData(uniswapPool);
+      (uint256 uniswapPrice, uint256 uniswapTimestamp) = grabUniswapData(uniswapPool);
       
       // Retrieve Tellor Value
       (uint256 tellorPrice, uint256 tellorTimestamp) = grabTellorData(_dataId);
 
       // Checking if values are close enough together
-      if (uniswapPool.liquidity() < _liquidityBound || !isWithinThreshold(oraclePrice, tellorPrice, _percentDifference) 
-        || !isWithinTime(oracleTimestamp, tellorTimestamp, _timeDifference)) {
-        (oraclePrice, oracleTimestamp) = (tellorPrice, tellorTimestamp);
+      if (uniswapPool.liquidity() < _liquidityBound || !isWithinThreshold(uniswapPrice, tellorPrice, _percentDifference) 
+        || !isWithinTime(uniswapTimestamp, tellorTimestamp, _timeDifference)) {
+        return (tellorPrice, tellorTimestamp);
       }
 
-      return (oraclePrice, oracleTimestamp);
+      return (uniswapPrice, uniswapTimestamp);
     }
 }
