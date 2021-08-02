@@ -25,7 +25,7 @@ All of these given levers can be specified by the user in order to help them cus
 
 ### Compiling and Testing
 ```
+npm install
 npx hardhat compile
-
 npx hardhat test
 ```
