@@ -22,12 +22,24 @@ contract FallBackOracle is UsingTellor {
 
     // Taking care of large prices
     using SafeMath for uint256;
-    using SafeMath for int256;
 
     // Storage
     mapping(uint => address) public priceFeeds; // Mapping for Data IDs and addresses
     
     // Functions
+    /**
+     * @dev Calculates a different using unsigned integers, to prevent overflow
+     * @param _valueOne first value to subtract
+     * @param _valueTwo second value to subtract
+     * @return uint256 absolute value difference
+     */
+    function unsignedDifference(uint256 _valueOne, uint256 _valueTwo) internal pure returns (uint256) {
+      if (_valueOne > _valueTwo) {
+        return _valueOne.sub(_valueTwo);
+      }
+      return _valueTwo.sub(_valueOne);
+    }
+
     /**
      * @dev Sets up respective addresses + pools, and also creates the mapping of price feeds
      * @param _tellorAddress the address of the tellor contract
@@ -53,12 +65,7 @@ contract FallBackOracle is UsingTellor {
      */
     function isWithinThreshold(uint256 _uniswapValue, uint256 _tellorValue, uint256 _percentLever) internal pure returns (bool) {
       // Calculate difference between the two values
-      uint256 valueDifference = 0;
-      if (_uniswapValue > _tellorValue) {
-        valueDifference = _uniswapValue.sub(_tellorValue);
-      } else {
-        valueDifference = _tellorValue.sub(_uniswapValue);
-      }
+      uint256 valueDifference = unsignedDifference(_uniswapValue, _tellorValue);
       
       // Determine if within or outside of threshold
       return valueDifference.mul(100) < _percentLever.mul(_uniswapValue);
@@ -73,12 +80,7 @@ contract FallBackOracle is UsingTellor {
      */
     function isWithinTime(uint256 _uniswapTime, uint256 _tellorTime, uint256 _timeLever) internal pure returns (bool) {
       // Determine time difference
-      uint256 timeChange = 0;
-      if (_uniswapTime > _tellorTime) {
-        timeChange = _uniswapTime.sub(_tellorTime);
-      } else {
-        timeChange = _tellorTime.sub(_uniswapTime);
-      }
+      uint256 timeChange = unsignedDifference(_uniswapTime, _tellorTime);
 
       // Check if data is fresh compared to expected lever
       return timeChange < _timeLever;
