@@ -28,6 +28,21 @@ contract FallBackOracle is UsingTellor {
     
     // Functions
     /**
+     * @dev Sets up respective addresses + pools, and also creates the mapping of price feeds
+     * @param _tellorAddress the address of the tellor contract
+     * @param _dataIds a list of data IDs
+     * @param _contracts a list of corresponding Uniswap pool contracts
+     */
+    constructor(address payable _tellorAddress, uint[] memory _dataIds, address[] memory _contracts) 
+    UsingTellor(_tellorAddress) public {
+      // Length of Data IDs and Contracts should be the same
+      require(_dataIds.length == _contracts.length, "Data IDs and Contracts are not same length");
+      for (uint i = 0; i < _dataIds.length; i++) {
+        priceFeeds[_dataIds[i]] = _contracts[i];
+      }
+    }
+
+    /**
      * @dev Determines if a value from Uniswap is within a specific percentange range
      * of Tellor's value
      * @param _uniswapValue value of a specific price id from Uniswap pool
@@ -54,31 +69,26 @@ contract FallBackOracle is UsingTellor {
      * @return uint256 value of price
      * @return uint256 timestamp of value
      */
-    function grabTellorValue(uint256 _dataId) internal view returns (uint256, uint256) {
+    function grabTellorData(uint256 _dataId) internal view returns (uint256, uint256) {
       (bool ifRetrieve, uint256 value, uint256 _timestampRetrieved) = getCurrentValue(_dataId);
       if (!ifRetrieve) return (0, 0);
       return (value, _timestampRetrieved);
     }
 
-     /**
-     * @dev Grabs current Uniswap Value by determining time weighted average tick (currently offset of 8)
+    /**
+     * @dev Grabs current Uniswap value and timestamp by determining pool state (offset of 10)
      * @param _pool Uniswap pool object where data is pulled from
-     * @param _secondInterval interval of time to look at for looking at price data
-     * @param _liquidityBound lower bound to check for how much liquidity exists
      * @return uint256 value of price
+     * @return uint256 timestamp of value
      */
-    function grabUniswapValue(IUniswapV3Pool _pool, uint32[] memory _secondInterval, uint128 _liquidityBound) internal view returns (uint256) {
-      // Get value of the data
-      (int56[] memory tickCumulatives, uint160[] memory secondsPerLiquidityCumulativeX128s) = _pool.observe(_secondInterval);
+    function grabUniswapData(IUniswapV3Pool _pool) internal view returns (uint256, uint256) {
+      // Get current state of the Uniswap Pool
+      (uint160 sqrtPriceX96,, uint16 observationIndex,,,, bool unlocked) = _pool.slot0();
 
-      // Calculate the tick and time difference
-      int24 tickDifference = int24(tickCumulatives[1]) - int24(tickCumulatives[0]);
-      uint24 timeDifference = uint24(_secondInterval[0]) - uint24(_secondInterval[1]);
-
-      // Calculate the time weighted average tick, and then utilize tick math to get sqrt price
-      int24 timeWeightedAverageTick = tickDifference / int24(timeDifference);
-      uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(timeWeightedAverageTick);
-      return uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e8) >> (96 * 2);
+      // Get timestamp and price from observations
+      (uint32 blockTimestamp,,, bool initialized) = _pool.observations(observationIndex);
+      uint256 uniswapPrice = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e10) >> (96 * 2);
+      return (uniswapPrice, uint256(blockTimestamp));
     }
 
     /**
@@ -92,35 +102,15 @@ contract FallBackOracle is UsingTellor {
     function grabNewValue(uint32[] memory _timeSpan, uint256 _dataId, uint128 _liquidityBound) external view returns (uint256, uint256) {
       // Set up Uniswap Pool
       IUniswapV3Pool uniswapPool = IUniswapV3Pool(address(priceFeeds[_dataId]));
-      uint256 uniswapPrice = grabUniswapValue(uniswapPool, _timeSpan, _liquidityBound);
-
+      (uint256 uniswapPrice, uint256 uniswapTimestamp) = grabUniswapData(uniswapPool);
+      
       // Check for conditions of Uniswap Pool -- liquidity
       if (uniswapPool.liquidity() < _liquidityBound) {
         console.log("We'll use Tellor!");
       }
 
       // Retrieve Tellor Value
-      (uint256 tellorValue, uint256 tellorTimestamp) = grabTellorValue(_dataId);
+      (uint256 tellorValue, uint256 tellorTimestamp) = grabTellorData(_dataId);
       return (tellorValue, tellorTimestamp);
-    }
-
-    // Getter to receive respective contract address from mapping
-    function getUniswapAddress(uint _dataId) external view returns (address) {
-      return priceFeeds[_dataId];
-    }
-
-    /**
-     * @dev Sets up respective addresses + pools, and also creates the mapping of price feeds
-     * @param _tellorAddress the address of the tellor contract
-     * @param _dataIds a list of data IDs
-     * @param _contracts a list of corresponding Uniswap pool contracts
-     */
-    constructor(address payable _tellorAddress, uint[] memory _dataIds, address[] memory _contracts) 
-    UsingTellor(_tellorAddress) public {
-      // Length of Data IDs and Contracts should be the same
-      require(_dataIds.length == _contracts.length, "Data IDs and Contracts are not same length");
-      for (uint i = 0; i < _dataIds.length; i++) {
-        priceFeeds[_dataIds[i]] = _contracts[i];
-      }
     }
 }
