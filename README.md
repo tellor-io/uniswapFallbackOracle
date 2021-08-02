@@ -21,6 +21,9 @@ In order to fallback, at least one of serveral criteria have to be true. These a
 
 All of these given levers can be specified by the user in order to help them customize how much they want to compare Uniswap and Tellor values.
 
-### Calculations
+### Compiling and Testing
+```
+npx hardhat compile
 
-To implement some of the above criteria, a couple of important calculations had to be made.
+npx hardhat test
+```
