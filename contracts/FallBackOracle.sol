@@ -13,7 +13,7 @@ import '@uniswap/v3-core/contracts/libraries/TickMath.sol';
 import '@openzeppelin/contracts/math/SafeMath.sol';
 
 /** 
- @author Christopher Pondoc
+ @author Christopher Pondoc ༼ つ ◕_◕ ༽つ
  @title Fallback Oracle
  @dev This contract implements an oracle which uses Uniswap as its main
  source of data, and then falls back to Tellor depending on certain conditions.
@@ -22,6 +22,7 @@ contract FallBackOracle is UsingTellor {
 
     // Taking care of large prices
     using SafeMath for uint256;
+    using SafeMath for int256;
 
     // Storage
     mapping(uint => address) public priceFeeds; // Mapping for Data IDs and addresses
@@ -47,10 +48,10 @@ contract FallBackOracle is UsingTellor {
      * of Tellor's value
      * @param _uniswapValue value of a specific price id from Uniswap pool
      * @param _tellorValue value of a specific price id from Tellor oracle
-     * @param _percent the whole number percentage of how close the values should be
+     * @param _percentLever the whole number percentage of how close the values should be
      * @return bool if value is within threshold
      */
-    function withinThreshold(uint256 _uniswapValue, uint256 _tellorValue, uint256 _percent) internal pure returns (bool) {
+    function isWithinThreshold(uint256 _uniswapValue, uint256 _tellorValue, uint256 _percentLever) internal pure returns (bool) {
       // Calculate difference between the two values
       uint256 valueDifference = 0;
       if (_uniswapValue > _tellorValue) {
@@ -58,9 +59,29 @@ contract FallBackOracle is UsingTellor {
       } else {
         valueDifference = _tellorValue.sub(_uniswapValue);
       }
-
+      
       // Determine if within or outside of threshold
-      return (valueDifference.mul(100) < _percent.mul(_uniswapValue));
+      return valueDifference.mul(100) < _percentLever.mul(_uniswapValue);
+    }
+
+    /**
+     * @dev Determines if a value from Uniswap is fresh enough to use against Tellor's
+     * @param _uniswapTime timestamp of value from Uniswap pool
+     * @param _tellorTime timestamp of value from Tellor oracle
+     * @param _timeLever how fresh the data should be
+     * @return bool if value is fresh enough
+     */
+    function isWithinTime(uint256 _uniswapTime, uint256 _tellorTime, uint256 _timeLever) internal pure returns (bool) {
+      // Determine time difference
+      uint256 timeChange = 0;
+      if (_uniswapTime > _tellorTime) {
+        timeChange = _uniswapTime.sub(_tellorTime);
+      } else {
+        timeChange = _tellorTime.sub(_uniswapTime);
+      }
+
+      // Check if data is fresh compared to expected lever
+      return timeChange < _timeLever;
     }
 
     /**
@@ -82,35 +103,40 @@ contract FallBackOracle is UsingTellor {
      * @return uint256 timestamp of value
      */
     function grabUniswapData(IUniswapV3Pool _pool) internal view returns (uint256, uint256) {
-      // Get current state of the Uniswap Pool
-      (uint160 sqrtPriceX96,, uint16 observationIndex,,,, bool unlocked) = _pool.slot0();
-
-      // Get timestamp and price from observations
-      (uint32 blockTimestamp,,, bool initialized) = _pool.observations(observationIndex);
+      // Get current state of the Uniswap Pool and retrieve price
+      (uint160 sqrtPriceX96,, uint16 observationIndex,,,,) = _pool.slot0();
       uint256 uniswapPrice = uint(sqrtPriceX96).mul(uint(sqrtPriceX96)).mul(1e10) >> (96 * 2);
+
+      // Find corresponding Uniswap observation to get timestamp
+      (uint32 blockTimestamp,,, bool initialized) = _pool.observations(observationIndex);
+      require(initialized == true, "Uniswap values are not safe to use");
+
       return (uniswapPrice, uint256(blockTimestamp));
     }
 
     /**
      * @dev Grabs value from both Uniswap and Tellor, and determines which value to return
-     * @param _timeSpan time span to look at for Uniswap price pool data
+     * Factors for determination: liquidity, data freshness, and closeness in values
      * @param _dataId price id to look at for both oracles (see Tellor Reference)
      * @param _liquidityBound lower bound to check for how much liquidity exists
+     * @param _timeDifference amount of time to check for update values
      * @return uint256 value of price
      * @return uint256 timestamp of value
      */
-    function grabNewValue(uint32[] memory _timeSpan, uint256 _dataId, uint128 _liquidityBound) external view returns (uint256, uint256) {
-      // Set up Uniswap Pool
+    function grabNewValue(uint256 _dataId, uint128 _liquidityBound, uint256 _timeDifference, uint256 _percentDifference) external view returns (uint256, uint256) {
+      // Set up Uniswap Pool and retrieve respective values
       IUniswapV3Pool uniswapPool = IUniswapV3Pool(address(priceFeeds[_dataId]));
-      (uint256 uniswapPrice, uint256 uniswapTimestamp) = grabUniswapData(uniswapPool);
+      (uint256 oraclePrice, uint256 oracleTimestamp) = grabUniswapData(uniswapPool);
       
-      // Check for conditions of Uniswap Pool -- liquidity
-      if (uniswapPool.liquidity() < _liquidityBound) {
-        console.log("We'll use Tellor!");
+      // Retrieve Tellor Value
+      (uint256 tellorPrice, uint256 tellorTimestamp) = grabTellorData(_dataId);
+
+      // Checking if values are close enough together
+      if (uniswapPool.liquidity() < _liquidityBound || !isWithinThreshold(oraclePrice, tellorPrice, _percentDifference) 
+        || !isWithinTime(oracleTimestamp, tellorTimestamp, _timeDifference)) {
+        (oraclePrice, oracleTimestamp) = (tellorPrice, tellorTimestamp);
       }
 
-      // Retrieve Tellor Value
-      (uint256 tellorValue, uint256 tellorTimestamp) = grabTellorData(_dataId);
-      return (tellorValue, tellorTimestamp);
+      return (oraclePrice, oracleTimestamp);
     }
 }

@@ -30,6 +30,6 @@ describe("Fallback Oracle", function() {
   // Use Tellor Playground to update values and check both the mapping and 
   // return function
   it("Check for Tellor Update Values", async function() {
-    var values, timestamp = await fallBackOracle.grabNewValue([20, 0], 1, 1000000);
+    var values, timestamp = await fallBackOracle.grabNewValue(1, 1000000, 50000, 20);
   });
 });
