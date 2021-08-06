@@ -181,12 +181,5 @@ describe("Timestamp Tests", function() {
     expect(oracleData[2]).to.equal(2);
   });
 
-  // Check if data is not fresh enough -> Uniswap
-  it("Check if data is just about fresh enough -- Uniswap", async function() {
-    timeDifference = "2100"
-    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
-    expect(oracleData[2]).to.equal(1);
-  });
-
 });
 
