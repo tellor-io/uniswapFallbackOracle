@@ -2,7 +2,6 @@
 const { expect } = require("chai");
 const { BigNumber } = require("ethers");
 const { ethers } = require("hardhat");
-const BN = require('bn.js');
 const {
   abi,
   bytecode
@@ -17,6 +16,35 @@ var contractAddresses = [sampleUniswapAddress]
 var liquidityBound;
 var timeDifference;
 var percentDifference;
+
+describe("Require Tests", function() {
+
+  this.beforeEach(async function() {
+    // Set up Tellor Playground
+    let TellorPlayground = await ethers.getContractFactory(abi, bytecode);
+    tellorPlayground = await TellorPlayground.deploy();
+    await tellorPlayground.deployed();
+  })
+
+  it("Check if too many IDs are submitted compared to addresses", async function() {
+    const sampleIDs = [1, 2, 3]
+    let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
+    await expect(FallBackOracle.deploy(tellorPlayground.address, sampleIDs, contractAddresses)).to.be.revertedWith("Data IDs and Contracts are not same length");
+  });
+
+  it("Check if too little IDs are submitted compared to addresses", async function() {
+    const sampleIDs = []
+    let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
+    await expect(FallBackOracle.deploy(tellorPlayground.address, sampleIDs, contractAddresses)).to.be.revertedWith("Data IDs and Contracts are not same length");
+  });
+
+  it("Check if just enough IDs are submitted compared to addresses", async function() {
+    let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
+    fallBackOracle = await FallBackOracle.deploy(tellorPlayground.address, IDs, contractAddresses);
+    await fallBackOracle.deployed();
+  });
+
+});
 
 describe("Liquidity Tests", function() {
 
@@ -109,4 +137,5 @@ describe("Price Tests", function() {
     var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
     expect(oracleData[2]).to.equal(1);
   });
+
 });

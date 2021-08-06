@@ -111,7 +111,7 @@ contract FallBackOracle is UsingTellor {
 
       // Find corresponding Uniswap observation to get timestamp
       (uint32 blockTimestamp,,, bool initialized) = _pool.observations(observationIndex);
-      require(initialized == true, "Uniswap values are not safe to use");
+      if (!initialized) return (0, 0);
 
       return (uniswapPrice, uint256(blockTimestamp));
     }
