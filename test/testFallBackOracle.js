@@ -19,19 +19,21 @@ var percentDifference;
 
 describe("Require Tests", function() {
 
+  // Set up Tellor Playground
   this.beforeEach(async function() {
-    // Set up Tellor Playground
     let TellorPlayground = await ethers.getContractFactory(abi, bytecode);
     tellorPlayground = await TellorPlayground.deploy();
     await tellorPlayground.deployed();
   })
 
+  // Check if too many IDs are submitted compared to addresses -- FAIL
   it("Check if too many IDs are submitted compared to addresses", async function() {
     const sampleIDs = [1, 2, 3]
     let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
     await expect(FallBackOracle.deploy(tellorPlayground.address, sampleIDs, contractAddresses)).to.be.revertedWith("Data IDs and Contracts are not same length");
   });
 
+  // Check if not enough IDs are submitted compared to addresses -- FAIL
   it("Check if too little IDs are submitted compared to addresses", async function() {
     const sampleIDs = []
     let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
@@ -139,3 +141,52 @@ describe("Price Tests", function() {
   });
 
 });
+
+
+describe("Timestamp Tests", function() {
+
+  // Set up FallBack Oracle Contract
+  beforeEach(async function() {
+    // Set up Tellor Playground
+    let TellorPlayground = await ethers.getContractFactory(abi, bytecode);
+    tellorPlayground = await TellorPlayground.deploy();
+    await tellorPlayground.deployed();
+
+    // Set up Fallback Oracle
+    let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
+    fallBackOracle = await FallBackOracle.deploy(tellorPlayground.address, IDs, contractAddresses);
+    await fallBackOracle.deployed();
+
+    // Deploy sample value to Tellor Playground
+    const requestId = 1;
+    const mockValue = "117447456821"
+    await tellorPlayground.submitValue(requestId, mockValue);
+
+    // Define initial variables
+    percentDifference = "50";
+    liquidityBound = "100";
+  });
+
+  // Check if data is fresh enough -> Uniswap
+  it("Check if data is not fresh enough -- Uniswap ", async function() {
+    timeDifference = "300000"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
+  });
+
+  // Check if data is not fresh enough -> Tellor
+  it("Check if data is not fresh enough -- Tellor ", async function() {
+    timeDifference = "300"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(2);
+  });
+
+  // Check if data is not fresh enough -> Uniswap
+  it("Check if data is just about fresh enough -- Uniswap", async function() {
+    timeDifference = "2100"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
+  });
+
+});
+
