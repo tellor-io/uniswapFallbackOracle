@@ -1,35 +1,112 @@
+// Necessary Dependencies
 const { expect } = require("chai");
+const { BigNumber } = require("ethers");
 const { ethers } = require("hardhat");
 const BN = require('bn.js');
-
-// Addresses for Main Functions
-const tellorAddress = "0x88dF592F8eb5D7Bd38bFeF7dEb0fBc02cf3778a0";
-const sampleUniswapAddress = "0x60594a405d53811d3bc4766596efd80fd545a270";
+const {
+  abi,
+  bytecode
+} = require("usingtellor/artifacts/contracts/TellorPlayground.sol/TellorPlayground.json")
 
 // Sample variables for data IDs and contracts
+const sampleUniswapAddress = "0x04916039b1f59d9745bf6e0a21f191d1e0a84287";
 const IDs = [1]
-const contractAddresses = [sampleUniswapAddress]
+var contractAddresses = [sampleUniswapAddress]
 
-// Offset
-const offset = 10
+// Changeable parameters depending on test
+var liquidityBound;
+var timeDifference;
+var percentDifference;
 
-describe("Fallback Oracle", function() {
+describe("Liquidity Tests", function() {
 
   // Set up FallBack Oracle Contract
   beforeEach(async function() {
+    // Set up Tellor Playground
+    let TellorPlayground = await ethers.getContractFactory(abi, bytecode);
+    tellorPlayground = await TellorPlayground.deploy();
+    await tellorPlayground.deployed();
+
+    // Set up Fallback Oracle
     let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
-    fallBackOracle = await FallBackOracle.deploy(tellorAddress, IDs, contractAddresses);
+    fallBackOracle = await FallBackOracle.deploy(tellorPlayground.address, IDs, contractAddresses);
     await fallBackOracle.deployed();
+
+    // Deploy sample value to Tellor Playground
+    const requestId = 1;
+    const mockValue = "117447456821";
+    await tellorPlayground.submitValue(requestId, mockValue);
+
+    // Define initial variables
+    timeDifference = "28108699";
+    percentDifference = "20";
   });
 
-  // Check each id with corresponding contract, as defined by reference variables
-  it ("Check that all Tellor data IDs align with Uniswap contract addresses", async function() {
-    //expect(await fallBackOracle.getUniswapAddress(1)).to.equal(contractAddresses[0]);
+  // Check if Liquidity is larger than needed -> Uniswap
+  it("Check for liquidity smaller than needed liquidity", async function() {
+    liquidityBound = "100";
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
   });
 
-  // Use Tellor Playground to update values and check both the mapping and 
-  // return function
-  it("Check for Tellor Update Values", async function() {
-    var values, timestamp = await fallBackOracle.grabNewValue(1, 1000000, 50000, 20);
+  // Check if Liquidity is smaller than needed -> Tellor
+  it("Check for liquidity smaller than needed liquidity", async function() {
+    liquidityBound = "342005866247579280920";
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(2);
+  });
+
+  // Check if liquidity is exactly what is needed -> Uniswap
+  it("Check for liquidity is exactly needed liquidity", async function() {
+    liquidityBound = "242005866247579280920";
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
+  });
+
+});
+
+describe("Price Tests", function() {
+
+  // Set up FallBack Oracle Contract
+  beforeEach(async function() {
+    // Set up Tellor Playground
+    let TellorPlayground = await ethers.getContractFactory(abi, bytecode);
+    tellorPlayground = await TellorPlayground.deploy();
+    await tellorPlayground.deployed();
+
+    // Set up Fallback Oracle
+    let FallBackOracle = await ethers.getContractFactory("FallBackOracle");
+    fallBackOracle = await FallBackOracle.deploy(tellorPlayground.address, IDs, contractAddresses);
+    await fallBackOracle.deployed();
+
+    // Deploy sample value to Tellor Playground
+    const requestId = 1;
+    const mockValue = "105702711121"
+    await tellorPlayground.submitValue(requestId, mockValue);
+
+    // Define initial variables
+    timeDifference = "28108699";
+    liquidityBound = "100";
+  });
+
+  // Check if value has enough leeway-> Uniswap
+  it("Check if value has enough leeway", async function() {
+    percentDifference = "20"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
+  });
+
+  // Check if value is too far from Tellor's -> Tellor
+  it("Check if value is too far from Tellor's", async function() {
+    percentDifference = "3"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(2);
+  });
+
+  // Check if value is exactly around Tellor's -> Uniswap
+  it("Check if value is exactly around Tellor's", async function() {
+    percentDifference = "11"
+    var oracleData = await fallBackOracle.grabNewValue(1, BigNumber.from(liquidityBound), BigNumber.from(timeDifference), BigNumber.from(percentDifference));
+    expect(oracleData[2]).to.equal(1);
   });
 });

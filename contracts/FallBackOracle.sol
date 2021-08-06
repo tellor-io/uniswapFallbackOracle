@@ -47,7 +47,7 @@ contract FallBackOracle is UsingTellor {
      * @param _contracts a list of corresponding Uniswap pool contracts
      */
     constructor(address payable _tellorAddress, uint[] memory _dataIds, address[] memory _contracts) 
-    UsingTellor(_tellorAddress) public {
+    UsingTellor(_tellorAddress)  {
       // Length of Data IDs and Contracts should be the same
       require(_dataIds.length == _contracts.length, "Data IDs and Contracts are not same length");
       for (uint i = 0; i < _dataIds.length; i++) {
@@ -124,21 +124,22 @@ contract FallBackOracle is UsingTellor {
      * @param _timeDifference amount of time to check for update values
      * @return uint256 value of price
      * @return uint256 timestamp of value
+     * @return uint 2 for Tellor, 1 for Uniswap
      */
-    function grabNewValue(uint256 _dataId, uint128 _liquidityBound, uint256 _timeDifference, uint256 _percentDifference) external view returns (uint256, uint256) {
+    function grabNewValue(uint256 _dataId, uint128 _liquidityBound, uint256 _timeDifference, uint256 _percentDifference) external view returns (uint256, uint256, uint) {
       // Set up Uniswap Pool and retrieve respective values
       IUniswapV3Pool uniswapPool = IUniswapV3Pool(address(priceFeeds[_dataId]));
       (uint256 uniswapPrice, uint256 uniswapTimestamp) = grabUniswapData(uniswapPool);
-      
+
       // Retrieve Tellor Value
       (uint256 tellorPrice, uint256 tellorTimestamp) = grabTellorData(_dataId);
 
       // Checking if values are close enough together
       if (uniswapPool.liquidity() < _liquidityBound || !isWithinThreshold(uniswapPrice, tellorPrice, _percentDifference) 
         || !isWithinTime(uniswapTimestamp, tellorTimestamp, _timeDifference)) {
-        return (tellorPrice, tellorTimestamp);
+        return (tellorPrice, tellorTimestamp, 2);
       }
 
-      return (uniswapPrice, uniswapTimestamp);
+      return (uniswapPrice, uniswapTimestamp, 1);
     }
 }
